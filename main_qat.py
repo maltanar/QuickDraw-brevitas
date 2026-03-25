@@ -246,7 +246,7 @@ if __name__ == '__main__':
             dummy_input = dummy_input.cpu()
             model_to_export.eval()
             
-            export_onnx_qcdq(model_to_export, dummy_input, export_path=export_path, dynamo=False)
+            export_onnx_qcdq(model_to_export, dummy_input, export_path=export_path, dynamo=False, opset_version=22)
             print(f"Successfully exported to {export_path}")
         except Exception as e:
             print(f"Failed to export QCDQ: {e}")
