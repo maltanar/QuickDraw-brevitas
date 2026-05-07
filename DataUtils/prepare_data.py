@@ -19,8 +19,12 @@ def download(nums=''):
     for c in classes:
         cls_url = c.replace('_', '%20')
         path = base+cls_url+'.npy'
-        print(path)
-        urllib.request.urlretrieve(path, './Data/'+c+'.npy')
+        target_path = './Data/'+c+'.npy'
+        if os.path.exists(target_path):
+            print('Skip download for existing file:', target_path)
+            continue
+        print('Downloading ', target_path)
+        urllib.request.urlretrieve(path, target_path)
 
 
 if __name__ == '__main__':
