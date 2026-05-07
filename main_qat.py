@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', '-g', type=float, default=0.1,
                         help='lr is multiplied by gamma on step defined above.')
     parser.add_argument('--ngpu', type=int,
-                        default=1, help='0 or less for CPU.')
+                        default=0, help='0 or less for CPU.')
     
     # quantization
     parser.add_argument('--bit_width', '-bw', type=int,
