@@ -52,7 +52,11 @@ Thumbs.db
 
 # Logs
 *.log
-log_*.txt
+log*.txt
+
+# Signal desktop apt sources (unrelated to project)
+signal-desktop-keyring.gpg
+signal-desktop.sources
 
 # Model artifacts and checkpoints
 Checkpoints/
