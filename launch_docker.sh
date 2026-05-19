@@ -7,7 +7,7 @@ docker run --rm -it \
   --device=/dev/kfd \
   --device=/dev/dri \
   --group-add video \
-  -v "$(pwd):/data/sandbox/QuickDraw-pytorch" \
-  -w /data/sandbox/QuickDraw-pytorch \
+  -v "$(pwd):/workspace/quickdraw-brevitas" \
+  -w /workspace/quickdraw-brevitas \
   quickdraw-qat \
   bash ./run_experiments.sh

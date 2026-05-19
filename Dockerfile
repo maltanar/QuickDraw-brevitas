@@ -8,14 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install extra dependencies
-# Using git+https for brevitas dev branch as per current setup in run_experiments.sh
-RUN pip install --no-cache-dir \
-    git+https://github.com/Xilinx/brevitas.git@dev \
-    onnx \
-    onnxscript \
-    qonnx \
-    onnxoptimizer
+# Install the project and optional dependencies from pyproject.toml
+WORKDIR /workspace/quickdraw-brevitas
+COPY . /workspace/quickdraw-brevitas
+RUN pip install --no-cache-dir ".[full]"
 
 # Set default command
 CMD ["bash"]
