@@ -3,7 +3,7 @@ import torch.nn as nn
 import brevitas.nn as qnn
 
 class QuantTinyCNN(nn.Module):
-    def __init__(self, num_classes, bit_width, per_channel_scaling=False, quantize_input=False, narrow_range=True):
+    def __init__(self, num_classes, bit_width, per_channel_scaling=False, quantize_input=False, narrow_range=True, use_bias=False):
         super(QuantTinyCNN, self).__init__()
         
         # Optional input quantization (binarization if bit_width is low)
@@ -17,7 +17,8 @@ class QuantTinyCNN(nn.Module):
             qnn.QuantConv2d(1, 16, kernel_size=3, stride=1, padding=1, 
                             weight_bit_width=bit_width, 
                             weight_scaling_per_output_channel=per_channel_scaling,
-                            weight_narrow_range=narrow_range),
+                            weight_narrow_range=narrow_range,
+                            bias=use_bias),
             nn.MaxPool2d(kernel_size=2),
             qnn.QuantReLU(bit_width=bit_width, narrow_range=narrow_range),
         )
@@ -25,7 +26,8 @@ class QuantTinyCNN(nn.Module):
             qnn.QuantConv2d(16, 32, kernel_size=3, stride=1, padding=1, 
                             weight_bit_width=bit_width,
                             weight_scaling_per_output_channel=per_channel_scaling,
-                            weight_narrow_range=narrow_range),
+                            weight_narrow_range=narrow_range,
+                            bias=use_bias),
             nn.MaxPool2d(kernel_size=2),
             qnn.QuantReLU(bit_width=bit_width, narrow_range=narrow_range),
         )
@@ -33,7 +35,8 @@ class QuantTinyCNN(nn.Module):
             qnn.QuantConv2d(32, 32, kernel_size=3, stride=1, padding=1, 
                             weight_bit_width=bit_width,
                             weight_scaling_per_output_channel=per_channel_scaling,
-                            weight_narrow_range=narrow_range),
+                            weight_narrow_range=narrow_range,
+                            bias=use_bias),
             nn.MaxPool2d(kernel_size=2),
             nn.Flatten(),
             qnn.QuantReLU(bit_width=bit_width, narrow_range=narrow_range),
@@ -43,11 +46,13 @@ class QuantTinyCNN(nn.Module):
         self.fc = nn.Sequential(
             qnn.QuantLinear(32 * 3 * 3, 64, weight_bit_width=bit_width,
                             weight_scaling_per_output_channel=per_channel_scaling,
-                            weight_narrow_range=narrow_range),
+                            weight_narrow_range=narrow_range,
+                            bias=use_bias),
             qnn.QuantReLU(bit_width=bit_width, narrow_range=narrow_range),
             qnn.QuantLinear(64, num_classes, weight_bit_width=bit_width,
                             weight_scaling_per_output_channel=per_channel_scaling,
-                            weight_narrow_range=narrow_range)
+                            weight_narrow_range=narrow_range,
+                            bias=use_bias)
         )
 
     def forward(self, x):

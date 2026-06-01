@@ -46,6 +46,8 @@ def main():
                         help='quantize/binarize the input layer.')
     parser.add_argument('--no_narrow_range', action='store_true', default=False,
                         help='disable narrow range (e.g. for 8-bit quantization use full [-128,127] instead of [-127,127]).')
+    parser.add_argument('--bias', action='store_true', default=False,
+                        help='enable bias for convolutional and FC layers.')
     parser.add_argument('--export_qonnx', action='store_true', default=False,
                         help='export the best model to QONNX at the end of training.')
     parser.add_argument('--export_qcdq', action='store_true', default=False,
@@ -94,7 +96,8 @@ def main():
     net = qtinycnn(num_classes, args.bit_width, 
                    per_channel_scaling=args.per_channel, 
                    quantize_input=args.quant_input,
-                   narrow_range=not args.no_narrow_range)
+                   narrow_range=not args.no_narrow_range,
+                   use_bias=args.bias)
 
     if args.ngpu > 1:
         net = nn.DataParallel(net)
