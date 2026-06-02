@@ -49,6 +49,99 @@ def is_int8_or_uint8(dtype):
     return dtype in (onnx.TensorProto.UINT8, onnx.TensorProto.INT8)
 
 
+def preprocess_brevitas_fc_patterns(graph):
+    """Preprocess Brevitas FC quantized weights: Constant -> Cast -> DQ -> Transpose -> MatMul
+
+    Pre-transpose the weights in the initializer and remove the Transpose node from the graph.
+    This allows the standard MatMul pattern matching to handle the conversion.
+
+    Returns: number of patterns preprocessed
+    """
+    transpose_outputs_to_remove = set()
+    initializers_to_update = {}
+    preprocessed = 0
+
+    for matmul_node in list(graph.node):
+        if matmul_node.op_type != 'MatMul':
+            continue
+
+        # Check both inputs for Transpose
+        for input_idx in range(2):
+            input_name = matmul_node.input[input_idx]
+            transpose_node = get_node_by_output(graph.node, input_name)
+
+            if not transpose_node or transpose_node.op_type != 'Transpose':
+                continue
+
+            # Trace: Transpose -> DequantizeLinear
+            transpose_input = transpose_node.input[0]
+            dq_node = get_node_by_output(graph.node, transpose_input)
+
+            if not dq_node or dq_node.op_type != 'DequantizeLinear':
+                continue
+
+            # Trace: DequantizeLinear -> Cast
+            dq_input = dq_node.input[0]
+            cast_node = get_node_by_output(graph.node, dq_input)
+
+            if not cast_node or cast_node.op_type != 'Cast':
+                continue
+
+            # Trace: Cast -> Constant
+            const_name = cast_node.input[0]
+            const_init = get_initializer(graph, const_name)
+
+            if not const_init:
+                continue
+
+            # Found the pattern! Pre-transpose the weights
+            arr = numpy_helper.to_array(const_init)
+
+            # Get transpose axes
+            axes = None
+            for attr in transpose_node.attribute:
+                if attr.name == 'perm':
+                    axes = list(helper.get_attribute_value(attr))
+
+            # Transpose the array
+            if axes is not None:
+                arr = np.transpose(arr, axes)
+            else:
+                arr = np.transpose(arr)
+
+            # Create new transposed initializer
+            transposed_init = numpy_helper.from_array(arr, const_name)
+            initializers_to_update[const_name] = transposed_init
+
+            # Rewire MatMul to skip Transpose and use the DQ output directly
+            matmul_node.input[input_idx] = transpose_input
+
+            # Mark Transpose node for removal
+            transpose_outputs_to_remove.add(transpose_node.output[0])
+
+            preprocessed += 1
+            print(f"Preprocessed Brevitas FC pattern in {matmul_node.name}: pre-transposed weights and removed Transpose")
+
+    # Update initializers with transposed versions
+    for old_name, new_init in initializers_to_update.items():
+        for i, init in enumerate(graph.initializer):
+            if init.name == old_name:
+                graph.initializer[i].CopyFrom(new_init)
+                break
+
+    # Remove Transpose nodes from graph
+    if transpose_outputs_to_remove:
+        kept_nodes = []
+        for node in graph.node:
+            if node.op_type == 'Transpose' and node.output and node.output[0] in transpose_outputs_to_remove:
+                continue
+            kept_nodes.append(node)
+        del graph.node[:]
+        graph.node.extend(kept_nodes)
+
+    return preprocessed
+
+
 def _get_clip_bounds(graph, clip_node):
     """Return scalar (min, max) for a Clip node, or (None, None) if unavailable."""
     # Clip-11+ typically uses inputs for min/max.
@@ -246,6 +339,10 @@ def convert_qdq_to_qop(model_path, output_path):
     rewritten_qcdq = rewrite_qcdq_lowbit_patterns(graph)
     if rewritten_qcdq > 0:
         print(f"Rewrote {rewritten_qcdq} low-bit Clip pattern(s) to compact low-bit tensors + Cast.")
+
+    preprocessed_fc = preprocess_brevitas_fc_patterns(graph)
+    if preprocessed_fc > 0:
+        print(f"Preprocessed {preprocessed_fc} Brevitas FC pattern(s): pre-transposed weights and removed Transpose node(s).")
 
     new_nodes = []
     outputs_to_remove = set()
