@@ -38,10 +38,10 @@ quickdraw-prepare-data --download 1 --categories 10 -v 0.2
 2. Run baseline (floating-point, should get ~95% accuracy) training for 5 epochs, and export to ONNX:
 
 ```bash
-quickdraw-train --ngpu 0 -e 5 --export_onnx
+quickdraw-train --ngpu 0 -e 15 --export_onnx
 ```
 
-3. Run QAT (8-bit quantization, should get ~95% accuracy) for 15 epochs, and export to QONNX:
+3. Run QAT (8-bit quantization, should get ~95% accuracy) for 15 epochs, and export to QCDQ-formatted ONNX:
 
 ```bash
 quickdraw-qat-train --ngpu 0 -e 15 --bit_width 8 --quant_input --no_narrow_range  --export_qcdq
