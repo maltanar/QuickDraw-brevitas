@@ -29,7 +29,7 @@ onnx = [
   "onnxscript>=0.1.0",
   "qonnx>=1.0.0",
   "onnxoptimizer>=0.3.13",
-  "emx-onnx-cgen>=0.2.0",
+  "emx-onnx-cgen>=1.3.1",
   "netron>=9.1.0"
 ]
 full = [
@@ -38,7 +38,8 @@ full = [
   "onnxscript>=0.1.0",
   "qonnx>=1.0.0",
   "onnxoptimizer>=0.3.13",
-  "emx-onnx-cgen>=0.2.0"
+  "emx-onnx-cgen>=1.3.1",
+  "netron>=9.1.0"
 ]
 
 [project.scripts]
