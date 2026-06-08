@@ -80,15 +80,16 @@ def preprocess_brevitas_fc_patterns(graph):
             if not dq_node or dq_node.op_type != 'DequantizeLinear':
                 continue
 
-            # Trace: DequantizeLinear -> Cast
+            # Trace: DequantizeLinear -> Cast (optional) -> Constant
             dq_input = dq_node.input[0]
             cast_node = get_node_by_output(graph.node, dq_input)
 
-            if not cast_node or cast_node.op_type != 'Cast':
-                continue
+            # Cast is optional - check if it exists, otherwise use dq_input directly
+            if cast_node and cast_node.op_type == 'Cast':
+                const_name = cast_node.input[0]
+            else:
+                const_name = dq_input
 
-            # Trace: Cast -> Constant
-            const_name = cast_node.input[0]
             const_init = get_initializer(graph, const_name)
 
             if not const_init:
@@ -664,9 +665,12 @@ def convert_qdq_to_qop(model_path, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description="Convert ONNX QDQ format to QOp format")
-    parser.add_argument("input_onnx", help="Input ONNX model in QDQ format")
-    parser.add_argument("output_onnx", help="Output ONNX model path in QOp format")
+    parser.add_argument("input_onnx", help="Input ONNX model in QDQ format (name under Checkpoints/ without .onnx extension)")
+    parser.add_argument("output_onnx", help="Output ONNX model name in QOp format (name under Checkpoints/ without .onnx extension)")
     args = parser.parse_args()
+
+    args.input_onnx = "Checkpoints/" + args.input_onnx + ".onnx"
+    args.output_onnx = "Checkpoints/" + args.output_onnx + ".onnx"
     
     convert_qdq_to_qop(args.input_onnx, args.output_onnx)
 
