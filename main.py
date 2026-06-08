@@ -191,7 +191,7 @@ def main():
         if state['test_accuracy'] > best_accuracy:
             best_accuracy = state['test_accuracy']
             torch.save(net.state_dict(), os.path.join(
-                args.save_dir, 'model.pytorch'))
+                args.save_dir, 'model_fp32.pytorch'))
         log.write('%s\n' % json.dumps(state))
         log.flush()
         print(state)
@@ -205,11 +205,11 @@ def main():
         print("Exporting model to ONNX...")
         try:
             # Load the best model checkpoint before exporting.
-            best_model_path = os.path.join(args.save_dir, 'model.pytorch')
+            best_model_path = os.path.join(args.save_dir, 'model_fp32.pytorch')
             net.load_state_dict(torch.load(best_model_path))
             net.eval()
 
-            export_path = os.path.join(args.save_dir, 'model.onnx')
+            export_path = os.path.join(args.save_dir, 'model_fp32.onnx')
             dummy_input = torch.randn(1, 1, args.image_size, args.image_size)
 
             model_to_export = net.module if isinstance(net, nn.DataParallel) else net
