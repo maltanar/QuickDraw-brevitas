@@ -668,9 +668,6 @@ def main():
     parser.add_argument("input_onnx", help="Input ONNX model in QDQ format (name under Checkpoints/ without .onnx extension)")
     parser.add_argument("output_onnx", help="Output ONNX model name in QOp format (name under Checkpoints/ without .onnx extension)")
     args = parser.parse_args()
-
-    args.input_onnx = "Checkpoints/" + args.input_onnx + ".onnx"
-    args.output_onnx = "Checkpoints/" + args.output_onnx + ".onnx"
     
     convert_qdq_to_qop(args.input_onnx, args.output_onnx)
 
