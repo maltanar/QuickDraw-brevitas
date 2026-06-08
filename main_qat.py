@@ -48,6 +48,8 @@ def main():
                         help='disable narrow range (e.g. for 8-bit quantization use full [-128,127] instead of [-127,127]).')
     parser.add_argument('--bias', action='store_true', default=False,
                         help='enable bias for convolutional and FC layers.')
+    parser.add_argument('--channel_scale', type=float, default=1.0,
+                        help='scale factor for model channel widths (e.g. 0.5 halves, 2.0 doubles).')
     parser.add_argument('--export_qonnx', action='store_true', default=False,
                         help='export the best model to QONNX at the end of training.')
     parser.add_argument('--export_qcdq', action='store_true', default=False,
@@ -97,7 +99,8 @@ def main():
                    per_channel_scaling=args.per_channel, 
                    quantize_input=args.quant_input,
                    narrow_range=not args.no_narrow_range,
-                   use_bias=args.bias)
+                   use_bias=args.bias,
+                   channel_scale=args.channel_scale)
 
     if args.ngpu > 1:
         net = nn.DataParallel(net)
