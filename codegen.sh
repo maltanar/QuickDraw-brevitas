@@ -7,6 +7,7 @@ if [ "$#" -ne 1 ]; then
 	exit 1
 fi
 
+CC="${CC:-arm-zephyr-eabi-gcc}"
 MODEL_NAME="$1"
 INPUT_PATH="Checkpoints/${MODEL_NAME}.onnx"
 OUTPUT_DIR="codegen/"
@@ -60,7 +61,7 @@ extract_elf_gnu_stack() {
 mkdir -p "$MODEL_DIR"
 # --large-temp-threshold 1024000
 emx-onnx-cgen compile --large-weight-threshold 0 --emit-testbench "$INPUT_PATH" "$MODEL_C_PATH"
-gcc-14 -Os -std=c23 "$MODEL_C_PATH" -o "$MODEL_BIN_PATH" -lm
+$CC -Os -std=c23 "$MODEL_C_PATH" -c -o "$MODEL_BIN_PATH" -lm
 
 if ! command -v size >/dev/null 2>&1; then
 	echo "Warning: 'size' command not found; skipping binary section analysis." >&2
