@@ -39,7 +39,7 @@ def main():
     
     # quantization
     parser.add_argument('--weight_bit_width', '-wbw', type=int,
-                        default=8, choices=[8, 4, 2], help='weight quantization precision.')
+                        default=8, choices=[8, 4, 2, 1], help='weight quantization precision.')
     parser.add_argument('--act_bit_width', '-abw', type=int,
                         default=8, choices=[8, 4, 2], help='activation quantization precision.')
     parser.add_argument('--per_channel', action='store_true', default=False,

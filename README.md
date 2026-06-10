@@ -53,6 +53,12 @@ quickdraw-qat-train --ngpu 0 -e 15 --weight_bit_width 8 --act_bit_width 8 --quan
 quickdraw-convert-qdq-to-qop Checkpoints/model_8bit_qcdq.onnx Checkpoints/model_8bit_qop.onnx
 ```
 
+5. Run QAT (1-bit weights, 8-bit activations) for 50 eopchs and export to QONNX:
+
+```bash
+quickdraw-qat-train --ngpu 0 -e 50 --weight_bit_width 1 --act_bit_width 8 --quant_input  --export_qonnx --per_channel -lrs 5 -lrs 20
+```
+
 ## Existing Script Workflow
 
 The shell helpers still work:
