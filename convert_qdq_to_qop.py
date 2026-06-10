@@ -190,6 +190,135 @@ def _infer_lowbit_qdtype(min_val, max_val):
     return None, None, None
 
 
+def _get_matmul_output_channels(weight_shape):
+    """Return output-channel count for MatMul RHS weight shape, or None."""
+    if len(weight_shape) < 2:
+        return None
+    return int(weight_shape[-1])
+
+
+def rewrite_bipolarquant_const_weights(graph):
+    """Rewrite BipolarQuant(const_weight, scale) feeding Conv/MatMul to int8->DQ.
+
+    Pattern:
+    Constant(weight_fp) -> BipolarQuant(weight_fp, output_scale) -> Conv/MatMul
+
+    Rewritten as:
+    Constant(weight_int8 in {-1, +1}) -> DequantizeLinear(weight_int8, output_scale)
+    """
+    added_nodes = []
+    added_initializers = []
+    bipolar_outputs_to_remove = set()
+    processed_bipolar_outputs = set()
+    rewrites = 0
+
+    for op_node in list(graph.node):
+        if op_node.op_type not in ("Conv", "MatMul"):
+            continue
+
+        # Conv weight is input[1]. For MatMul, test both inputs and keep constant-weight side.
+        if op_node.op_type == "Conv":
+            candidate_inputs = [1] if len(op_node.input) > 1 else []
+        else:
+            candidate_inputs = [0, 1]
+
+        for input_idx in candidate_inputs:
+            bq_input_name = op_node.input[input_idx]
+            bq_node = get_node_by_output(graph.node, bq_input_name)
+            if bq_node is None or bq_node.op_type != "BipolarQuant":
+                continue
+            if bq_node.output and bq_node.output[0] in processed_bipolar_outputs:
+                continue
+            if len(bq_node.input) < 2:
+                continue
+
+            weight_init = get_initializer(graph, bq_node.input[0])
+            scale_init = get_initializer(graph, bq_node.input[1])
+            if weight_init is None or scale_init is None:
+                continue
+
+            weight_arr = np.asarray(numpy_helper.to_array(weight_init))
+            if weight_arr.size == 0:
+                continue
+
+            # Validate output scale: scalar or per-output-channel.
+            scale_arr = np.asarray(numpy_helper.to_array(scale_init))
+            scale_size = int(scale_arr.size)
+            per_channel = False
+            axis = 0
+
+            if scale_size == 1:
+                per_channel = False
+            else:
+                if op_node.op_type == "Conv":
+                    out_ch = int(weight_arr.shape[0]) if weight_arr.ndim >= 1 else None
+                    axis = 0
+                else:
+                    out_ch = _get_matmul_output_channels(weight_arr.shape)
+                    axis = len(weight_arr.shape) - 1
+
+                if out_ch is None or scale_size != out_ch:
+                    continue
+                per_channel = True
+
+            # Bipolar quantization to integer domain: {-1, +1} in int8.
+            w_int8 = np.where(weight_arr >= 0, 1, -1).astype(np.int8)
+            if bq_node.name:
+                base = bq_node.name
+            else:
+                base = bq_node.output[0].replace("/", "_")
+
+            int8_name = base + "_int8"
+            int8_init = numpy_helper.from_array(w_int8, int8_name)
+            added_initializers.append(int8_init)
+
+            dq_scale_name = bq_node.input[1]
+            if per_channel and scale_arr.ndim != 1:
+                dq_scale_name = base + "_scale_per_channel"
+                dq_scale = numpy_helper.from_array(scale_arr.reshape(-1).astype(np.float32), dq_scale_name)
+                added_initializers.append(dq_scale)
+
+            dq_inputs = [int8_name, dq_scale_name]
+            dq_attrs = {}
+            if per_channel:
+                dq_attrs["axis"] = axis
+
+            dq_node = helper.make_node(
+                "DequantizeLinear",
+                inputs=dq_inputs,
+                outputs=[bq_node.output[0]],
+                name=base + "_dq",
+                **dq_attrs,
+            )
+            added_nodes.append(dq_node)
+
+            bipolar_outputs_to_remove.add(bq_node.output[0])
+            processed_bipolar_outputs.add(bq_node.output[0])
+            rewrites += 1
+
+            print(
+                f"Rewrote {bq_node.name or bq_node.output[0]} feeding {op_node.op_type} "
+                f"to int8 constant + DequantizeLinear"
+            )
+
+    if rewrites == 0:
+        return 0
+
+    kept_nodes = []
+    for node in graph.node:
+        if node.op_type == "BipolarQuant" and node.output and node.output[0] in bipolar_outputs_to_remove:
+            continue
+        kept_nodes.append(node)
+
+    kept_nodes.extend(added_nodes)
+
+    del graph.node[:]
+    graph.node.extend(kept_nodes)
+    graph.initializer.extend(added_initializers)
+
+    return rewrites
+
+
 def rewrite_qcdq_lowbit_patterns(graph):
     """Rewrite QuantizeLinear->Clip->DequantizeLinear into low-bit Q + Cast.
 
@@ -336,6 +465,10 @@ def convert_qdq_to_qop(model_path, output_path):
     print(f"Loading model from {model_path}...")
     model = onnx.load(model_path)
     graph = model.graph
+
+    rewritten_bipolar = rewrite_bipolarquant_const_weights(graph)
+    if rewritten_bipolar > 0:
+        print(f"Rewrote {rewritten_bipolar} BipolarQuant constant-weight pattern(s) to int8 + DequantizeLinear.")
 
     rewritten_qcdq = rewrite_qcdq_lowbit_patterns(graph)
     if rewritten_qcdq > 0:
@@ -634,7 +767,6 @@ def convert_qdq_to_qop(model_path, output_path):
 
     if not new_nodes:
         print("No QDQ patterns found to replace.")
-        return
         
     final_nodes = []
     for node in graph.node:
