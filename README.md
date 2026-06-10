@@ -44,7 +44,7 @@ quickdraw-train --ngpu 0 -e 15 --export_onnx
 3. Run QAT (8-bit quantization, should get ~95% accuracy) for 15 epochs, and export to QCDQ-formatted ONNX:
 
 ```bash
-quickdraw-qat-train --ngpu 0 -e 15 --bit_width 8 --quant_input --no_narrow_range  --export_qcdq
+quickdraw-qat-train --ngpu 0 -e 15 --weight_bit_width 8 --act_bit_width 8 --quant_input --no_narrow_range  --export_qcdq
 ```
 
 4. Convert QCDQ ONNX to QOperator ONNX:

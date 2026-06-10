@@ -38,8 +38,10 @@ def main():
                         default=0, help='0 or less for CPU.')
     
     # quantization
-    parser.add_argument('--bit_width', '-bw', type=int,
-                        default=8, choices=[8, 4, 2], help='quantization precision.')
+    parser.add_argument('--weight_bit_width', '-wbw', type=int,
+                        default=8, choices=[8, 4, 2], help='weight quantization precision.')
+    parser.add_argument('--act_bit_width', '-abw', type=int,
+                        default=8, choices=[8, 4, 2], help='activation quantization precision.')
     parser.add_argument('--per_channel', action='store_true', default=False,
                         help='use per-channel scaling for weights.')
     parser.add_argument('--quant_input', action='store_true', default=False,
@@ -72,7 +74,7 @@ def main():
     if not os.path.isdir(args.log):
         os.makedirs(args.log)
 
-    log = open(os.path.join(args.log, f'log_{args.bit_width}bit.txt'), 'w')
+    log = open(os.path.join(args.log, f'log_{args.weight_bit_width}bit_{args.act_bit_width}bit.txt'), 'w')
     state = {k: v for k, v in args._get_kwargs()}
     log.write(json.dumps(state)+'\n')
 
@@ -95,7 +97,7 @@ def main():
     print("Train images number: %d" % len(train_data))
     print("Test images number: %d" % len(test_data))
 
-    net = qtinycnn(num_classes, args.bit_width, 
+    net = qtinycnn(num_classes, args.weight_bit_width, args.act_bit_width, 
                    per_channel_scaling=args.per_channel, 
                    quantize_input=args.quant_input,
                    narrow_range=not args.no_narrow_range,
@@ -117,7 +119,7 @@ def main():
         net.train()
         loss_avg = 0.0
         correct = 0
-        data_loader = tqdm(train_loader, desc=f'Training {args.bit_width}-bit')
+        data_loader = tqdm(train_loader, desc=f'Training w{args.weight_bit_width}a{args.act_bit_width}')
         for batch_idx, (data, target) in enumerate(data_loader):
             if args.ngpu > 0:
                 data, target = torch.autograd.Variable(data.cuda()), \
@@ -152,7 +154,7 @@ def main():
         net.eval()
         loss_avg = 0.0
         correct = 0
-        data_loader = tqdm(test_loader, desc=f'Testing {args.bit_width}-bit')
+        data_loader = tqdm(test_loader, desc=f'Testing w{args.weight_bit_width}a{args.act_bit_width}')
         for batch_idx, (data, target) in enumerate(data_loader):
             if args.ngpu > 0:
                 data, target = torch.autograd.Variable(data.cuda()), \
@@ -197,7 +199,7 @@ def main():
         if state['test_accuracy'] > best_accuracy:
             best_accuracy = state['test_accuracy']
             torch.save(net.state_dict(), os.path.join(
-                args.save_dir, f'model_{args.bit_width}bit.pytorch'))
+                args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch'))
         log.write('%s\n' % json.dumps(state))
         log.flush()
         print(state)
@@ -213,11 +215,11 @@ def main():
             from brevitas.export import export_qonnx
             
             # Load the best model
-            best_model_path = os.path.join(args.save_dir, f'model_{args.bit_width}bit.pytorch')
+            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch')
             net.load_state_dict(torch.load(best_model_path))
             net.eval()
             
-            export_path = os.path.join(args.save_dir, f'model_{args.bit_width}bit.onnx')
+            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.onnx')
             dummy_input = torch.randn(1, 1, args.image_size, args.image_size)
             if args.ngpu > 0:
                 dummy_input = dummy_input.cuda()
@@ -240,11 +242,11 @@ def main():
             from brevitas.export import export_onnx_qcdq
             
             # Load the best model
-            best_model_path = os.path.join(args.save_dir, f'model_{args.bit_width}bit.pytorch')
+            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch')
             net.load_state_dict(torch.load(best_model_path))
             net.eval()
             
-            export_path = os.path.join(args.save_dir, f'model_{args.bit_width}bit_qcdq.onnx')
+            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit_qcdq.onnx')
             dummy_input = torch.randn(1, 1, args.image_size, args.image_size)
             
             model_to_export = net.module if isinstance(net, nn.DataParallel) else net
