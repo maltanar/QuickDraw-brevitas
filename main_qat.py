@@ -74,7 +74,7 @@ def main():
     if not os.path.isdir(args.log):
         os.makedirs(args.log)
 
-    log = open(os.path.join(args.log, f'log_{args.weight_bit_width}bit_{args.act_bit_width}bit.txt'), 'w')
+    log = open(os.path.join(args.log, f'log_w{args.weight_bit_width}a{args.act_bit_width}.txt'), 'w')
     state = {k: v for k, v in args._get_kwargs()}
     log.write(json.dumps(state)+'\n')
 
@@ -199,7 +199,7 @@ def main():
         if state['test_accuracy'] > best_accuracy:
             best_accuracy = state['test_accuracy']
             torch.save(net.state_dict(), os.path.join(
-                args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch'))
+                args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}.pytorch'))
         log.write('%s\n' % json.dumps(state))
         log.flush()
         print(state)
@@ -215,11 +215,11 @@ def main():
             from brevitas.export import export_qonnx
             
             # Load the best model
-            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch')
+            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}.pytorch')
             net.load_state_dict(torch.load(best_model_path))
             net.eval()
             
-            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.onnx')
+            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}.onnx')
             dummy_input = torch.randn(1, 1, args.image_size, args.image_size)
             if args.ngpu > 0:
                 dummy_input = dummy_input.cuda()
@@ -242,11 +242,11 @@ def main():
             from brevitas.export import export_onnx_qcdq
             
             # Load the best model
-            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit.pytorch')
+            best_model_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}.pytorch')
             net.load_state_dict(torch.load(best_model_path))
             net.eval()
             
-            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}bit_qcdq.onnx')
+            export_path = os.path.join(args.save_dir, f'model_w{args.weight_bit_width}a{args.act_bit_width}_qcdq.onnx')
             dummy_input = torch.randn(1, 1, args.image_size, args.image_size)
             
             model_to_export = net.module if isinstance(net, nn.DataParallel) else net
